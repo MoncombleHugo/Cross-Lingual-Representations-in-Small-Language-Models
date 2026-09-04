@@ -1,0 +1,24 @@
+experiment_name: tri_05b
+seed: 42
+model:
+  name: trillionlabs/Tri-0.5B-Base
+  revision: null
+  device: auto
+  dtype: auto
+  trust_remote_code: false
+dataset:
+  name: facebook/flores
+  config: all
+  train_split: dev
+  evaluation_split: devtest
+  n_train: 256
+  n_eval: 512
+  languages:
+    en: eng_Latn
+    ko: kor_Hang
+    ja: jpn_Jpan
+    zh: zho_Hans
+pooling: [last_token, mean]
+batch_size: 8
+max_length: 256
+
