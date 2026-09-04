@@ -90,6 +90,8 @@ def sample_parallel_rows(
     languages: Mapping[str, str] = DEFAULT_LANGUAGES,
     n_samples: int | None = None,
     seed: int = 42,
+    text_field_template: str = "sentence_{code}",
+    id_field: str | None = "id",
 ) -> ParallelSplit:
     """Validate and sample records from FLORES' ``all`` configuration.
 
@@ -106,12 +108,15 @@ def sample_parallel_rows(
     sentences: dict[str, list[str]] = {language: [] for language in language_codes}
     for index in indices:
         row = materialized[int(index)]
-        if "id" not in row:
-            raise ValueError("FLORES row is missing its 'id' field")
-        sentence_id = str(row["id"])
+        if id_field is None:
+            sentence_id = str(int(index))
+        else:
+            if id_field not in row:
+                raise ValueError(f"FLORES row is missing its {id_field!r} field")
+            sentence_id = str(row[id_field])
         ids.append(sentence_id)
         for language, code in language_codes.items():
-            field = f"sentence_{code}"
+            field = text_field_template.format(code=code, language=language)
             if field not in row:
                 raise ValueError(f"FLORES row {sentence_id!r} is missing {field!r}")
             value = row[field]
@@ -134,8 +139,10 @@ def load_flores_split(
     n_samples: int | None = None,
     seed: int = 42,
     dataset_name: str = DEFAULT_DATASET_NAME,
-    dataset_config: str = DEFAULT_DATASET_CONFIG,
+    dataset_config: str | None = DEFAULT_DATASET_CONFIG,
     revision: str | None = None,
+    text_field_template: str = "sentence_{code}",
+    id_field: str | None = "id",
     load_dataset_fn: DatasetLoader | None = None,
 ) -> ParallelSplit:
     """Load one FLORES split and return deterministic aligned multilingual rows."""
@@ -147,13 +154,18 @@ def load_flores_split(
     loader_kwargs: dict[str, Any] = {"split": split}
     if revision is not None:
         loader_kwargs["revision"] = revision
-    records = load_dataset_fn(dataset_name, dataset_config, **loader_kwargs)
+    if dataset_config is None:
+        records = load_dataset_fn(dataset_name, **loader_kwargs)
+    else:
+        records = load_dataset_fn(dataset_name, dataset_config, **loader_kwargs)
     return sample_parallel_rows(
         records,
         split=split,
         languages=languages,
         n_samples=n_samples,
         seed=seed,
+        text_field_template=text_field_template,
+        id_field=id_field,
     )
 
 

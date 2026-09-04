@@ -86,3 +86,18 @@ def test_duplicate_sentence_ids_are_rejected() -> None:
     with pytest.raises(ValueError, match="must be unique"):
         sample_parallel_rows(rows, split="dev")
 
+
+def test_explicit_index_ids_and_direct_language_columns() -> None:
+    rows = [{code: f"{code}-{index}" for code in DEFAULT_LANGUAGES.values()} for index in range(4)]
+
+    split = sample_parallel_rows(
+        rows,
+        split="dev",
+        n_samples=2,
+        seed=1,
+        text_field_template="{code}",
+        id_field=None,
+    )
+
+    assert len(split) == 2
+    assert all(row["en"] == f"eng_Latn-{row['id']}" for row in split.rows())

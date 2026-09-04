@@ -1,14 +1,16 @@
-experiment_name: qwen_05b
+experiment_name: tri_05b
 seed: 42
 model:
-  name: Qwen/Qwen2.5-0.5B
+  name: trillionlabs/Tri-0.5B-Base
   revision: null
   device: auto
   dtype: auto
   trust_remote_code: false
 dataset:
-  name: facebook/flores
-  config: all
+  name: yash9439/flores200
+  config: null
+  text_field_template: "{code}"
+  id_field: null
   train_split: dev
   evaluation_split: devtest
   n_train: 256
@@ -31,3 +33,4 @@ language_probe:
 tokenization:
   enabled: true
   add_special_tokens: true
+

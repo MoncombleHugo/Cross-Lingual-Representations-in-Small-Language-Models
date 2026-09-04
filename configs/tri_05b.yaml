@@ -21,4 +21,13 @@ dataset:
 pooling: [last_token, mean]
 batch_size: 8
 max_length: 256
-
+representation_dtype: float16
+procrustes:
+  enabled: true
+language_probe:
+  enabled: true
+  c: 1.0
+  max_iter: 2000
+tokenization:
+  enabled: true
+  add_special_tokens: true

@@ -6,7 +6,7 @@
 
 ## Implementation status
 
-Phases 1–6 of the implementation plan are complete:
+Phases 1–11 of the implementation plan are complete:
 
 - an installable `src/`-layout package, configurations, scripts, tests, and ignored output directories;
 - deterministic FLORES `dev`/`devtest` loading from the official `facebook/flores` `all`
@@ -19,22 +19,38 @@ Phases 1–6 of the implementation plan are complete:
   controls, and average-rank handling for exact ties;
 - evaluation of every directed pair among EN/KO/JA/ZH, tidy CSV output, and headless PNG figures
   generated from the saved result table.
+- orthogonal Procrustes fitted on `dev` only and evaluated on `devtest`, with raw/aligned/delta
+  retrieval metrics and a synthetic rotation-orientation test; degenerate zero-norm centered layers
+  are retained as explicit `NaN` values rather than receiving fabricated scores;
+- standardized logistic-regression language probes with accuracy, macro F1, and confusion matrices
+  for the embedding, middle, and final states;
+- sentence-level tokenizer measurements (characters, UTF-8 bytes, tokens, normalized rates, and
+  aligned ratios to English) with multi-model summaries and figures;
+- a configuration-only Qwen2.5-0.5B baseline run through the same extraction and evaluation code;
+- consolidated final tables, cross-model figures, best-layer heatmaps, and an evidence-based
+  findings section generated from the saved tidy CSV files.
 
-The official FLORES repository is gated. Before running the data inspection, accept its terms on
-Hugging Face and authenticate locally (for example with `hf auth login` or an `HF_TOKEN`). No token
-is read from a project file or committed to Git.
+The final run used the public `yash9439/flores200` mirror because the official `facebook/flores`
+repository was gated on the experiment machine. The official-source configurations remain the
+default; the explicit `*_public.yaml` configurations record the alternative schema used for the
+reported results. No token is read from a project file or committed to Git.
 
 ```bash
 python -m venv .venv
 pip install -e ".[dev]"
-python scripts/inspect_data.py --split dev --n-samples 16 --preview 5
 python scripts/inspect_model.py --model trillionlabs/Tri-0.5B-Base
-python scripts/extract_representations.py --config configs/tri_05b.yaml --split evaluation
-python scripts/run_retrieval.py --config configs/tri_05b.yaml
-python scripts/make_figures.py --retrieval-csv results/raw/tri_05b_retrieval.csv
+for config in configs/tri_05b_public.yaml configs/qwen_05b_public.yaml; do
+  python scripts/extract_representations.py --config "$config" --split train
+  python scripts/extract_representations.py --config "$config" --split evaluation
+  python scripts/run_retrieval.py --config "$config"
+  python scripts/run_procrustes.py --config "$config"
+  python scripts/run_language_probe.py --config "$config"
+done
+python scripts/run_tokenization_analysis.py --config configs/tri_05b_public.yaml --config configs/qwen_05b_public.yaml
+python scripts/make_final_analysis.py --config configs/tri_05b_public.yaml --config configs/qwen_05b_public.yaml
 pytest
 ruff check .
-mypy src
+mypy src scripts
 ```
 
 The phase-3 inspection was verified on CPU with Tri-0.5B-Base. For the sentence
@@ -2486,36 +2502,55 @@ The project should demonstrate good scientific judgment as much as technical ski
 
 ---
 
-# 57. Suggested Final README Results Section
-
-Once experiments have been run, replace this section with real results.
+# 57. Final Results
 
 ## Key Findings
 
-> **Do not invent or pre-fill results.**
+These observations use 256 aligned FLORES `dev` sentences for fitting and 512 distinct `devtest`
+sentences for evaluation, over every directed pair among EN/KO/JA/ZH. Layer 0 is the embedding
+output and layers 1–24 are Transformer-block outputs. The primary representation is the final
+non-padding token.
 
-The final version should contain approximately three to five concise findings.
+![Direction-averaged layer-wise translation retrieval](results/figures/model_retrieval_comparison_last_token.png)
 
-Example structure:
+1. **Translation retrieval is strongly layer-dependent.** Direction-averaged R@1 peaks at layer
+   20 for Tri (0.6898) and layer 15 for Qwen (0.7718), versus a random baseline of 0.0020. It then
+   falls to 0.2357 and 0.0290 respectively at the final layer. This supports an intermediate-layer
+   alignment interpretation under this retrieval probe; it does not establish a general ordering
+   between the models.
 
-```text
-1. Cross-lingual retrieval changes substantially across Transformer depth.
-   [Actual quantitative result.]
+2. **Pooling changes the observed geometry.** Mean pooling reaches 0.7676 R@1 for Tri at layer 6,
+   higher and much earlier than its last-token maximum, whereas Qwen's mean-pooling maximum is
+   0.5732 at layer 15, below its last-token result. Conclusions about a single “best layer” are
+   therefore representation-choice dependent.
 
-2. The strongest alignment occurs around [...]
-   [Actual quantitative result.]
+3. **Orthogonal alignment helps unevenly across depth and model.** Averaged over all valid layers
+   and directions, Procrustes changes last-token R@1 by +0.0070 for Tri and +0.0951 for Qwen. The
+   largest gains occur after raw retrieval deteriorates: at layer 24 the gains are about +0.40 and
+   +0.56, while at each model's best raw layer the change is small or negative. This is consistent
+   with recoverable geometric structure in late representations, not proof of a universal semantic
+   space.
 
-3. Orthogonal alignment changes retrieval by [...]
-   [Actual quantitative result.]
+4. **Language identity remains linearly accessible.** Final-layer probe accuracy is 0.9995 for
+   both models (chance: 0.25), even though the same representations support cross-lingual retrieval
+   at other depths. Semantic alignment and language separability therefore coexist in this setup.
 
-4. Language identity remains [...]
-   [Actual probe result.]
+5. **Tokenizer behavior differs materially by language.** Relative to each model's English token
+   count, Tri averages 1.04×/1.20×/1.16× tokens for KO/JA/ZH, while Qwen averages
+   1.65×/1.43×/1.00×. These measurements contextualize the representation results but do not imply
+   that token efficiency determines model quality.
 
-5. Tri and Qwen exhibit [...]
-   [Actual comparison.]
-```
+The compact values are in [`results/tables/final_summary.csv`](results/tables/final_summary.csv),
+with full retrieval, Procrustes, probe, and tokenization summaries alongside it.
 
-Every claim should correspond directly to a table or figure in the repository.
+### Limitations
+
+- Results cover one deterministic sample, one seed, four languages, and FLORES sentence-level text;
+  no confidence intervals or domain-transfer evaluation are reported.
+- The public mirror's schema was validated and shared positional indices were retained, but it is
+  not the gated official dataset repository.
+- The analysis is observational and sensitive to pooling, model implementation, tokenizer, and
+  layer convention; retrieval does not measure reasoning or establish causal explanations.
 
 ---
 
@@ -2623,49 +2658,49 @@ The project is considered complete when all of the following are true:
 ```text
 [ ] A fresh environment can install the repository.
 
-[ ] pytest passes.
+[x] pytest passes.
 
-[ ] ruff check . passes.
+[x] ruff check . passes.
 
 [ ] The smoke configuration executes end to end.
 
-[ ] FLORES parallel examples are loaded reproducibly.
+[x] FLORES parallel examples are loaded reproducibly.
 
-[ ] Tri-0.5B representations are extracted from every layer.
+[x] Tri-0.5B representations are extracted from every layer.
 
-[ ] Representations are cached at sentence level.
+[x] Representations are cached at sentence level.
 
-[ ] Last-token and mean pooling are implemented correctly.
+[x] Last-token and mean pooling are implemented correctly.
 
-[ ] Cross-lingual retrieval works for EN, KO, JA, and ZH.
+[x] Cross-lingual retrieval works for EN, KO, JA, and ZH.
 
-[ ] Recall@1, Recall@5, Recall@10, and MRR are produced.
+[x] Recall@1, Recall@5, Recall@10, and MRR are produced.
 
-[ ] Layer-wise retrieval figures exist.
+[x] Layer-wise retrieval figures exist.
 
-[ ] Procrustes is fitted on dev and evaluated on devtest.
+[x] Procrustes is fitted on dev and evaluated on devtest.
 
-[ ] Procrustes synthetic tests pass.
+[x] Procrustes synthetic tests pass.
 
-[ ] Language probes are trained on dev and evaluated on devtest.
+[x] Language probes are trained on dev and evaluated on devtest.
 
-[ ] Tokenization statistics are computed.
+[x] Tokenization statistics are computed.
 
-[ ] Qwen2.5-0.5B baseline is evaluated.
+[x] Qwen2.5-0.5B baseline is evaluated.
 
-[ ] All final figures are generated from saved result tables.
+[x] All final figures are generated from saved result tables.
 
-[ ] No result is manually hardcoded.
+[x] No result is manually hardcoded.
 
-[ ] The public README contains actual findings.
+[x] The public README contains actual findings.
 
-[ ] Limitations are documented.
+[x] Limitations are documented.
 
-[ ] No large unnecessary model/data artifact is committed to Git.
+[x] No large unnecessary model/data artifact is committed to Git.
 
-[ ] Commands needed to reproduce the experiment are documented.
+[x] Commands needed to reproduce the experiment are documented.
 
-[ ] Repository code is clean enough for another engineer to understand without the original author.
+[x] Repository code is clean enough for another engineer to understand without the original author.
 ```
 
 ---

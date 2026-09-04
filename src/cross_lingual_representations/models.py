@@ -95,27 +95,38 @@ def resolve_dtype(choice: DTypeChoice, device: torch.device) -> torch.dtype:
     return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
 
 
-def load_causal_lm(config: ModelLoadConfig) -> LoadedModel:
-    """Load a base causal LM sequentially with cache disabled for inspection."""
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-
-    device = resolve_device(config.device)
-    dtype = resolve_dtype(config.dtype, device)
+def _pretrained_kwargs(config: ModelLoadConfig) -> dict[str, Any]:
     common_kwargs: dict[str, Any] = {
         "revision": config.revision,
         "trust_remote_code": config.trust_remote_code,
     }
-    common_kwargs = {key: value for key, value in common_kwargs.items() if value is not None}
+    return {key: value for key, value in common_kwargs.items() if value is not None}
+
+
+def load_tokenizer(config: ModelLoadConfig) -> TokenizerLike:
+    """Load and configure the tokenizer without loading model weights."""
+    from transformers import AutoTokenizer
 
     tokenizer = cast(
         TokenizerLike,
-        AutoTokenizer.from_pretrained(config.model_name, **common_kwargs),
+        AutoTokenizer.from_pretrained(config.model_name, **_pretrained_kwargs(config)),
     )
     tokenizer.padding_side = "right"
     if tokenizer.pad_token is None:
         if tokenizer.eos_token is None:
             raise ValueError("Tokenizer has neither a padding token nor an EOS token")
         tokenizer.pad_token = tokenizer.eos_token
+    return tokenizer
+
+
+def load_causal_lm(config: ModelLoadConfig) -> LoadedModel:
+    """Load a base causal LM sequentially with cache disabled for inspection."""
+    from transformers import AutoModelForCausalLM
+
+    device = resolve_device(config.device)
+    dtype = resolve_dtype(config.dtype, device)
+    common_kwargs = _pretrained_kwargs(config)
+    tokenizer = load_tokenizer(config)
 
     model = cast(
         Any,

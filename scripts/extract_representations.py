@@ -47,6 +47,8 @@ def main() -> None:
         seed=config.seed,
         dataset_name=config.dataset.name,
         dataset_config=config.dataset.config,
+        text_field_template=config.dataset.text_field_template,
+        id_field=config.dataset.id_field,
     )
     save_selected_ids(
         args.metadata_root / f"{config.experiment_name}_{split}_indices.json",

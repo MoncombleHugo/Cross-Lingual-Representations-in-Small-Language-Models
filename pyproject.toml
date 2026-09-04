@@ -58,3 +58,7 @@ follow_imports = "skip"
 [[tool.mypy.overrides]]
 module = ["datasets", "datasets.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sklearn", "sklearn.*"]
+ignore_missing_imports = true
