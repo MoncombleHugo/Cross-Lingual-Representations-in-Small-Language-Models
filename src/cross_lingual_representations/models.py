@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from typing import Any, Literal, Protocol, cast
 
@@ -21,7 +22,9 @@ class TokenizerLike(Protocol):
     eos_token_id: int | None
     bos_token_id: int | None
 
-    def __call__(self, text: str, **kwargs: Any) -> dict[str, torch.Tensor]: ...
+    def __call__(
+        self, text: str | Sequence[str], **kwargs: Any
+    ) -> dict[str, torch.Tensor]: ...
 
 
 @dataclass(frozen=True, slots=True)

@@ -24,7 +24,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["mypy>=1.11,<2", "pytest>=8.3,<10", "ruff>=0.6,<1"]
+dev = [
+  "mypy>=1.11,<2",
+  "pytest>=8.3,<10",
+  "ruff>=0.6,<1",
+  "types-PyYAML>=6.0",
+  "types-tqdm>=4.66",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cross_lingual_representations"]

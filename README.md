@@ -6,13 +6,19 @@
 
 ## Implementation status
 
-Phases 1–3 of the implementation plan are complete:
+Phases 1–6 of the implementation plan are complete:
 
 - an installable `src/`-layout package, configurations, scripts, tests, and ignored output directories;
 - deterministic FLORES `dev`/`devtest` loading from the official `facebook/flores` `all`
   configuration, with one shared row sample and explicit ID/column validation;
 - generic Hugging Face causal-LM loading with CPU/CUDA and dtype resolution, right padding,
   disabled KV caching, and a one-sentence hidden-state inspection command.
+- masked mean and final non-padding-token pooling applied immediately after each forward pass;
+- validated `.npz` sentence-representation caches with explicit compatibility checks;
+- cosine translation retrieval with ID-aware ranking, R@1/R@5/R@10/MRR, matched/unmatched
+  controls, and average-rank handling for exact ties;
+- evaluation of every directed pair among EN/KO/JA/ZH, tidy CSV output, and headless PNG figures
+  generated from the saved result table.
 
 The official FLORES repository is gated. Before running the data inspection, accept its terms on
 Hugging Face and authenticate locally (for example with `hf auth login` or an `HF_TOKEN`). No token
@@ -23,6 +29,9 @@ python -m venv .venv
 pip install -e ".[dev]"
 python scripts/inspect_data.py --split dev --n-samples 16 --preview 5
 python scripts/inspect_model.py --model trillionlabs/Tri-0.5B-Base
+python scripts/extract_representations.py --config configs/tri_05b.yaml --split evaluation
+python scripts/run_retrieval.py --config configs/tri_05b.yaml
+python scripts/make_figures.py --retrieval-csv results/raw/tri_05b_retrieval.csv
 pytest
 ruff check .
 mypy src
