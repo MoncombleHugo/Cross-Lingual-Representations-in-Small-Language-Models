@@ -6,7 +6,7 @@
 
 ## Implementation status
 
-Phases 1–11 of the implementation plan are complete:
+Phases 1–12 of the implementation plan are complete:
 
 - an installable `src/`-layout package, configurations, scripts, tests, and ignored output directories;
 - deterministic FLORES `dev`/`devtest` loading from the official `facebook/flores` `all`
@@ -28,29 +28,62 @@ Phases 1–11 of the implementation plan are complete:
   aligned ratios to English) with multi-model summaries and figures;
 - a configuration-only Qwen2.5-0.5B baseline run through the same extraction and evaluation code;
 - consolidated final tables, cross-model figures, best-layer heatmaps, and an evidence-based
-  findings section generated from the saved tidy CSV files.
+  findings section generated from the saved tidy CSV files;
+- a restartable `run_all.py` orchestrator, isolated smoke outputs, environment diagnostics,
+  an execution manifest, and a successful end-to-end smoke validation.
 
-The final run used the public `yash9439/flores200` mirror because the official `facebook/flores`
-repository was gated on the experiment machine. The official-source configurations remain the
-default; the explicit `*_public.yaml` configurations record the alternative schema used for the
-reported results. No token is read from a project file or committed to Git.
+The reported final run used the official gated `facebook/flores` repository after authenticating
+locally and accepting its access conditions. The explicit `*_public.yaml` configurations remain as
+an unauthenticated fallback for development, but they are not the source of the reported results.
+No token is read from a project file or committed to Git.
+
+### Local GPU and Hugging Face setup
+
+The final experiments ran on an NVIDIA GeForce RTX 3080 with PyTorch `2.11.0+cu128`; CUDA detection
+was recorded in each pipeline manifest. If a fresh environment installs a CPU-only PyTorch build,
+install a CUDA wheel using the command recommended by the
+[official PyTorch selector](https://pytorch.org/get-started/locally/). For CUDA 12.8:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip uninstall -y torch
+.\.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cu128
+.\.venv\Scripts\python.exe -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+Authentication is unnecessary for the public fallback and the two model repositories. It is
+required for the official FLORES configurations: log in on Hugging Face, accept the conditions on
+[`facebook/flores`](https://huggingface.co/datasets/facebook/flores), then run:
+
+```powershell
+.\.venv\Scripts\hf.exe auth login
+```
+
+`run_all.py` checks both conditions up front: it warns when an NVIDIA GPU is paired with CPU-only
+PyTorch and stops with an actionable message if an official gated configuration has no local token.
 
 ```bash
 python -m venv .venv
 pip install -e ".[dev]"
 python scripts/inspect_model.py --model trillionlabs/Tri-0.5B-Base
-for config in configs/tri_05b_public.yaml configs/qwen_05b_public.yaml; do
+for config in configs/tri_05b.yaml configs/qwen_05b.yaml; do
   python scripts/extract_representations.py --config "$config" --split train
   python scripts/extract_representations.py --config "$config" --split evaluation
   python scripts/run_retrieval.py --config "$config"
   python scripts/run_procrustes.py --config "$config"
   python scripts/run_language_probe.py --config "$config"
 done
-python scripts/run_tokenization_analysis.py --config configs/tri_05b_public.yaml --config configs/qwen_05b_public.yaml
-python scripts/make_final_analysis.py --config configs/tri_05b_public.yaml --config configs/qwen_05b_public.yaml
+python scripts/run_tokenization_analysis.py --config configs/tri_05b.yaml --config configs/qwen_05b.yaml
+python scripts/make_final_analysis.py --config configs/tri_05b.yaml --config configs/qwen_05b.yaml
 pytest
 ruff check .
 mypy src scripts
+```
+
+The complete smoke pipeline is a single command. Its caches and results are isolated under
+`artifacts/smoke/` and `results/smoke/`, so it cannot overwrite the final experiment outputs:
+
+```bash
+python scripts/run_all.py --config configs/smoke.yaml
 ```
 
 The phase-3 inspection was verified on CPU with Tri-0.5B-Base. For the sentence
@@ -1878,18 +1911,12 @@ Avoid verbose logging inside every batch except for a progress bar.
 
 # 47. Command-Line Interface
 
-The following workflow should eventually work.
+The following workflow is implemented and validated.
 
 ### Install
 
 ```bash
 pip install -e ".[dev]"
-```
-
-or with `uv`:
-
-```bash
-uv sync
 ```
 
 ### Smoke test
@@ -1913,8 +1940,11 @@ python scripts/run_all.py --config configs/qwen_05b.yaml
 ### Generate final figures
 
 ```bash
-python scripts/make_figures.py --results-dir results/raw
+python scripts/make_final_analysis.py --config configs/tri_05b.yaml --config configs/qwen_05b.yaml
 ```
+
+Use the corresponding `*_public.yaml` files in these commands when intentionally reproducing the
+published mirror-based run without Hugging Face authentication.
 
 ### Tests
 
@@ -2514,18 +2544,18 @@ non-padding token.
 ![Direction-averaged layer-wise translation retrieval](results/figures/model_retrieval_comparison_last_token.png)
 
 1. **Translation retrieval is strongly layer-dependent.** Direction-averaged R@1 peaks at layer
-   20 for Tri (0.6898) and layer 15 for Qwen (0.7718), versus a random baseline of 0.0020. It then
-   falls to 0.2357 and 0.0290 respectively at the final layer. This supports an intermediate-layer
+   13 for Tri (0.6888) and layer 15 for Qwen (0.7705), versus a random baseline of 0.0020. It then
+   falls to 0.2324 and 0.0257 respectively at the final layer. This supports an intermediate-layer
    alignment interpretation under this retrieval probe; it does not establish a general ordering
    between the models.
 
-2. **Pooling changes the observed geometry.** Mean pooling reaches 0.7676 R@1 for Tri at layer 6,
+2. **Pooling changes the observed geometry.** Mean pooling reaches 0.7673 R@1 for Tri at layer 6,
    higher and much earlier than its last-token maximum, whereas Qwen's mean-pooling maximum is
-   0.5732 at layer 15, below its last-token result. Conclusions about a single “best layer” are
+   0.5724 at layer 15, below its last-token result. Conclusions about a single “best layer” are
    therefore representation-choice dependent.
 
 3. **Orthogonal alignment helps unevenly across depth and model.** Averaged over all valid layers
-   and directions, Procrustes changes last-token R@1 by +0.0070 for Tri and +0.0951 for Qwen. The
+   and directions, Procrustes changes last-token R@1 by +0.0088 for Tri and +0.0950 for Qwen. The
    largest gains occur after raw retrieval deteriorates: at layer 24 the gains are about +0.40 and
    +0.56, while at each model's best raw layer the change is small or negative. This is consistent
    with recoverable geometric structure in late representations, not proof of a universal semantic
@@ -2547,8 +2577,8 @@ with full retrieval, Procrustes, probe, and tokenization summaries alongside it.
 
 - Results cover one deterministic sample, one seed, four languages, and FLORES sentence-level text;
   no confidence intervals or domain-transfer evaluation are reported.
-- The public mirror's schema was validated and shared positional indices were retained, but it is
-  not the gated official dataset repository.
+- Reproducing the reported run requires a Hugging Face account with access accepted for the gated
+  official `facebook/flores` repository; the public fallback may not reproduce identical values.
 - The analysis is observational and sensitive to pooling, model implementation, tokenizer, and
   layer convention; retrieval does not measure reasoning or establish causal explanations.
 
@@ -2656,13 +2686,13 @@ Hugging Face tokens, if required locally, must come from environment variables o
 The project is considered complete when all of the following are true:
 
 ```text
-[ ] A fresh environment can install the repository.
+[x] A fresh environment can install the repository.
 
 [x] pytest passes.
 
 [x] ruff check . passes.
 
-[ ] The smoke configuration executes end to end.
+[x] The smoke configuration executes end to end.
 
 [x] FLORES parallel examples are loaded reproducibly.
 

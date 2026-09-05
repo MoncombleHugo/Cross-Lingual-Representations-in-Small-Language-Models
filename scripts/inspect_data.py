@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 from cross_lingual_representations.data import load_flores_split, preview_rows
 
@@ -17,6 +18,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     args = parse_args()
     dataset = load_flores_split(split=args.split, n_samples=args.n_samples, seed=args.seed)
     print(preview_rows(dataset, count=args.preview))
@@ -25,4 +28,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

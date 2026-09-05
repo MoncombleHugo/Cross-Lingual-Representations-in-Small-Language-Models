@@ -72,8 +72,8 @@ trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ko,ko,510
 trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ko,ja,1
 trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ko,zh,1
 trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ja,en,0
-trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ja,ko,0
-trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ja,ja,511
+trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ja,ko,1
+trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ja,ja,510
 trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,ja,zh,1
 trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,zh,en,0
 trillionlabs/Tri-0.5B-Base,12,0.5,mean,1024,2048,4,zh,ko,0

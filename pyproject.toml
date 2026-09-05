@@ -12,6 +12,7 @@ license = { text = "MIT" }
 authors = [{ name = "Hugo Moncomble" }]
 dependencies = [
   "datasets>=3.0,<5",
+  "huggingface-hub>=1.0,<2",
   "matplotlib>=3.9,<4",
   "numpy>=2.0,<2.3",
   "pandas>=2.2,<4",
