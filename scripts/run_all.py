@@ -117,6 +117,12 @@ def build_steps(
             (python, str(script_root / "run_retrieval.py"), *common_analysis),
         )
     )
+    steps.append(
+        PipelineStep(
+            "diagnostics",
+            (python, str(script_root / "run_diagnostics.py"), *common_analysis),
+        )
+    )
     if config.procrustes.enabled:
         steps.append(
             PipelineStep(

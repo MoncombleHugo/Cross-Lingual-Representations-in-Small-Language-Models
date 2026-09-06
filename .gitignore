@@ -28,6 +28,11 @@ results/raw/*
 !results/raw/qwen_05b_procrustes.csv
 !results/raw/qwen_05b_language_probe.csv
 !results/raw/qwen_05b_probe_confusion.csv
+!results/raw/*_geometry.csv
+!results/raw/*_retrieval_bootstrap.csv
+!results/raw/*_retrieval_subsamples.csv
+!results/raw/*_position_retrieval.csv
+!results/raw/*_block_*_retrieval.csv
 !results/raw/tokenization.csv
 !results/tables/
 !results/tables/*.csv

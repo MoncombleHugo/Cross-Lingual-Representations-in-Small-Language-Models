@@ -6,6 +6,10 @@
 
 ## Implementation status
 
+A self-contained French walkthrough of the methodology, experiments, figures, interpretation, and
+technical caveats is available in
+[`docs/RAPPORT_EXPERIMENTAL.md`](docs/RAPPORT_EXPERIMENTAL.md).
+
 Phases 1–12 of the implementation plan are complete:
 
 - an installable `src/`-layout package, configurations, scripts, tests, and ignored output directories;
@@ -30,7 +34,11 @@ Phases 1–12 of the implementation plan are complete:
 - consolidated final tables, cross-model figures, best-layer heatmaps, and an evidence-based
   findings section generated from the saved tidy CSV files;
 - a restartable `run_all.py` orchestrator, isolated smoke outputs, environment diagnostics,
-  an execution manifest, and a successful end-to-end smoke validation.
+  an execution manifest, and a successful end-to-end smoke validation;
+- train-only per-language centering separated from Procrustes rotation, 1,000-query bootstrap
+  intervals, 20 query-subsample stability runs, anisotropy and stable-rank diagnostics,
+  relative-token-position retrieval, and targeted residual-stream decompositions of Tri block 7
+  and Qwen block 22.
 
 The reported final run used the official gated `facebook/flores` repository after authenticating
 locally and accepting its access conditions. The explicit `*_public.yaml` configurations remain as
@@ -1205,6 +1213,10 @@ Never compute centering statistics on evaluation data.
 
 This experiment is optional and should not delay the core deliverable.
 
+It is now implemented as an explicit `centered` condition alongside `raw` and fully `aligned`
+retrieval. Language means are fitted on `dev`; the results show that centering alone explains most
+of the late-layer recovery.
+
 ---
 
 # 30. Repository Structure
@@ -1631,6 +1643,9 @@ Resample queries, not individual similarity matrix entries.
 This is computationally cheap because representations are already extracted.
 
 Bootstrap intervals are a **nice-to-have**, not required before the basic experiments work.
+
+They are now reported using 1,000 joint query-ID resamples with 95% percentile intervals; the same
+resampled IDs are shared across all 12 directions.
 
 ---
 
@@ -2570,13 +2585,24 @@ non-padding token.
    1.65×/1.43×/1.00×. These measurements contextualize the representation results but do not imply
    that token efficiency determines model quality.
 
+6. **The abrupt Tri pooling inversion is localized.** From layer 6 to 7, last-token R@1 rises from
+   0.0695 to 0.4334 while mean-pooling R@1 falls from 0.7673 to 0.2909. Residual-stream hooks show
+   that attention raises last-token retrieval to 0.4995, whereas the MLP collapses mean-pooling
+   retrieval from 0.8169 to 0.2909. The mean representation's stable rank simultaneously falls
+   from 14.72 to 1.01, identifying a strongly anisotropic transition.
+
+7. **Late-layer recovery is primarily a centering effect.** At layer 24, per-language centering
+   without rotation reaches 0.8184/0.8543 R@1 for Tri and 0.7212/0.6955 for Qwen under
+   last-token/mean pooling. These values exceed the full Procrustes results, so the evidence points
+   to large language-specific offsets rather than a benefit attributable purely to rotation.
+
 The compact values are in [`results/tables/final_summary.csv`](results/tables/final_summary.csv),
 with full retrieval, Procrustes, probe, and tokenization summaries alongside it.
 
 ### Limitations
 
-- Results cover one deterministic sample, one seed, four languages, and FLORES sentence-level text;
-  no confidence intervals or domain-transfer evaluation are reported.
+- Results cover one deterministic sample, one seed, four languages, and FLORES sentence-level text.
+  Query bootstrap intervals are reported, but no seed replication or domain-transfer evaluation is.
 - Reproducing the reported run requires a Hugging Face account with access accepted for the gated
   official `facebook/flores` repository; the public fallback may not reproduce identical values.
 - The analysis is observational and sensitive to pooling, model implementation, tokenizer, and

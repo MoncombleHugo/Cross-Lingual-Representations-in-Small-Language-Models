@@ -58,7 +58,11 @@ def test_degenerate_centered_layer_is_reported_as_nan() -> None:
 
     rows = evaluate_procrustes(make_bundle("dev"), make_bundle("devtest"))
     aligned = [row for row in rows if row["condition"] == "aligned"]
+    centered = [row for row in rows if row["condition"] == "centered"]
 
     assert aligned
+    assert centered
     assert all(row["status"] == "degenerate_zero_norm" for row in aligned)
+    assert all(row["status"] == "degenerate_zero_norm" for row in centered)
     assert all(np.isnan(row["value"]) for row in aligned)
+    assert all(np.isnan(row["value"]) for row in centered)

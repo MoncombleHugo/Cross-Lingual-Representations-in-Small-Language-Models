@@ -138,12 +138,28 @@ def evaluate_procrustes(
                 train.vectors[target_position, :, layer_index, :],
             )
             directions: tuple[
-                tuple[str, str, NDArray[np.float32], NDArray[np.float32], Any, Any], ...
+                tuple[
+                    str,
+                    str,
+                    NDArray[np.float32],
+                    NDArray[np.float32],
+                    NDArray[np.float32],
+                    NDArray[np.float32],
+                    Any,
+                    Any,
+                ],
+                ...,
             ] = (
                 (
                     source_language,
                     target_language,
                     alignment.transform_source(
+                        evaluation.vectors[source_position, :, layer_index, :]
+                    ),
+                    alignment.center_target(
+                        evaluation.vectors[target_position, :, layer_index, :]
+                    ),
+                    alignment.center_source(
                         evaluation.vectors[source_position, :, layer_index, :]
                     ),
                     alignment.center_target(
@@ -161,20 +177,40 @@ def evaluate_procrustes(
                     alignment.center_source(
                         evaluation.vectors[source_position, :, layer_index, :]
                     ),
+                    alignment.center_target(
+                        evaluation.vectors[target_position, :, layer_index, :]
+                    ),
+                    alignment.center_source(
+                        evaluation.vectors[source_position, :, layer_index, :]
+                    ),
                     evaluation.vectors[target_position, :, layer_index, :],
                     evaluation.vectors[source_position, :, layer_index, :],
                 ),
             )
-            for src_lang, tgt_lang, aligned_src, centered_tgt, raw_src, raw_tgt in directions:
+            for (
+                src_lang,
+                tgt_lang,
+                aligned_src,
+                aligned_tgt,
+                centered_src,
+                centered_tgt,
+                raw_src,
+                raw_tgt,
+            ) in directions:
                 raw_metrics = evaluate_direction(
                     raw_src,
                     raw_tgt,
                     evaluation.sentence_ids,
                     evaluation.sentence_ids,
                 )
+                centered_metrics, centered_status = _evaluate_or_nan(
+                    centered_src,
+                    centered_tgt,
+                    evaluation.sentence_ids,
+                )
                 aligned_metrics, aligned_status = _evaluate_or_nan(
                     aligned_src,
-                    centered_tgt,
+                    aligned_tgt,
                     evaluation.sentence_ids,
                 )
                 for metric in raw_metrics:
@@ -190,10 +226,23 @@ def evaluate_procrustes(
                         "n_eval": len(evaluation.sentence_ids),
                     }
                     raw_value = raw_metrics[metric]
+                    centered_value = centered_metrics[metric]
                     aligned_value = aligned_metrics[metric]
                     rows.extend(
                         [
                             {**common, "condition": "raw", "status": "ok", "value": raw_value},
+                            {
+                                **common,
+                                "condition": "centered",
+                                "status": centered_status,
+                                "value": centered_value,
+                            },
+                            {
+                                **common,
+                                "condition": "centered_delta",
+                                "status": centered_status,
+                                "value": centered_value - raw_value,
+                            },
                             {
                                 **common,
                                 "condition": "aligned",

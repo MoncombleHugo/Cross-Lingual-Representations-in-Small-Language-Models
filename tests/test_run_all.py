@@ -21,6 +21,7 @@ def test_smoke_outputs_are_isolated_and_pipeline_is_ordered() -> None:
         "extract-train",
         "extract-evaluation",
         "retrieval",
+        "diagnostics",
         "procrustes",
         "language-probe",
         "tokenization",

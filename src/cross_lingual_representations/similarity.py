@@ -16,6 +16,8 @@ def l2_normalize(vectors: ArrayLike, *, epsilon: float = 1e-12) -> NDArray[np.fl
     if epsilon <= 0:
         raise ValueError("epsilon must be positive")
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    if not np.all(np.isfinite(matrix)) or not np.all(np.isfinite(norms)):
+        raise ValueError("Cannot normalize non-finite representations")
     if np.any(norms <= epsilon):
         raise ValueError("Cannot normalize a zero or near-zero representation")
     return cast(NDArray[np.float32], matrix / norms)
