@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import cast
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -30,13 +31,18 @@ def translation_ranks(
     if missing:
         raise ValueError(f"Targets are missing {len(missing)} source sentence IDs")
 
-    ranks = np.empty(len(source_ids), dtype=np.float64)
-    for query_index, sentence_id in enumerate(source_ids):
-        positive_score = scores[query_index, target_positions[sentence_id]]
-        greater = np.count_nonzero(scores[query_index] > positive_score)
-        tied_others = np.count_nonzero(scores[query_index] == positive_score) - 1
-        ranks[query_index] = 1 + greater + tied_others / 2
-    return ranks
+    positive_positions = np.fromiter(
+        (target_positions[sentence_id] for sentence_id in source_ids),
+        dtype=np.intp,
+        count=len(source_ids),
+    )
+    positive_scores = scores[np.arange(len(source_ids)), positive_positions, None]
+    greater = np.count_nonzero(scores > positive_scores, axis=1)
+    tied_others = np.count_nonzero(scores == positive_scores, axis=1) - 1
+    return cast(
+        NDArray[np.float64],
+        (1 + greater + tied_others / 2).astype(np.float64, copy=False),
+    )
 
 
 def retrieval_metrics(ranks: ArrayLike) -> Mapping[str, float]:

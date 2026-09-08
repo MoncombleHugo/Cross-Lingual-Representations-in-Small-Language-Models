@@ -2848,3 +2848,215 @@ and can explain what the results do and do not establish.”
 ```
 
 That is the standard the implementation should optimize for.
+
+---
+
+# 64. Non-parallel centroid validation
+
+## Research question
+
+Does late-layer cross-lingual retrieval remain recoverable when language centroids are estimated
+from unrelated, unlabelled monolingual text rather than parallel FLORES translations?
+
+## Protocol
+
+`scripts/run_nonparallel_centering.py` streams independent language configurations from public mC4,
+caches 1,024 representations per language, and evaluates 8–512 centroid samples over ten seeds.
+Centroids are learned only from mC4 train text and applied to the existing FLORES devtest cache.
+Every pooling/seed/sample-size result is checkpointed, so interrupted runs resume without repeating
+completed retrieval conditions.
+
+```powershell
+python scripts/run_nonparallel_centering.py --config configs/tri_05b_public.yaml
+python scripts/run_nonparallel_centering.py --config configs/qwen_05b_public.yaml
+```
+
+## Controls and metric
+
+The tidy CSV compares raw, FLORES-dev parallel-centered, mC4 nonparallel-centered, and a single
+global mC4 mean. The primary metric is mean R@1 over all 12 directed language pairs; MRR and every
+direction are retained in the same CSV.
+
+## Results
+
+At layer 24, mean-pooling R@1 rises from 0.124 raw to 0.758 with 512 non-parallel samples (0.854
+with parallel centering), while global centering remains at 0.201. Last-token R@1 rises from 0.232
+to 0.459 (parallel: 0.818; global: 0.298). The non-parallel mean-pooling estimate already reaches
+0.695 with eight samples and approximately 0.75 with 32–64 samples.
+
+For Qwen2.5-0.5B at layer 24, mean-pooling R@1 rises from 0.043 raw to 0.349 with 512
+non-parallel samples (0.695 with parallel centering). Last-token R@1 rises from 0.026 to 0.223
+(parallel: 0.721). The replication therefore confirms the qualitative effect in a second model,
+although non-parallel centering recovers less of the parallel-centering gain than it does for Tri.
+
+## Interpretation
+
+These observations support the hypothesis that a substantial part of late-layer cosine
+misalignment is caused by language-specific offsets that can be estimated without translations,
+labels, or evaluation examples. The size of the recoverable component is model-dependent.
+
+## What this does NOT establish
+
+The result does not by itself establish causality or a uniquely low-dimensional mechanism. Section
+65 tests whether the same centering operation is useful for a separate downstream task.
+
+---
+
+# 65. English-to-multilingual intent transfer
+
+## Protocol
+
+`scripts/run_crosslingual_transfer.py` trains an English-only multinomial logistic-regression probe
+on 3,000 MASSIVE intent examples, then evaluates 1,500 examples in English, Korean, Japanese, and
+Chinese. It compares raw, global-centered, and per-language-centered features at the embedding,
+intermediate, best-raw, and final layers for both pooling methods. Sampling is deterministic and
+stratified. All centroids and the feature scaler are fitted on training data only; target test
+labels are used solely for evaluation.
+
+```powershell
+python scripts/run_crosslingual_transfer.py --config configs/tri_05b_public.yaml
+python scripts/run_crosslingual_transfer.py --config configs/qwen_05b_public.yaml
+```
+
+## Results
+
+For Tri-0.5B, mean target-language accuracy at the final layer rises from 0.297 raw to 0.518 after
+per-language centering; last-token accuracy rises from 0.071 to 0.375. For Qwen2.5-0.5B, the
+corresponding gains are 0.264 to 0.528 for mean pooling and 0.324 to 0.392 for last-token pooling.
+The global-centering control is numerically identical to the raw condition, as expected for a
+shared translation followed by a fitted intercept.
+
+Across evaluated layer/language conditions, retrieval gain is positively associated with transfer
+gain (Tri: Pearson r=0.595, Spearman rho=0.736; Qwen: r=0.682, rho=0.763). This is correlational
+evidence that the geometric repair measured by translation retrieval can coincide with improved
+zero-shot task transfer; it is not a causal claim.
+
+---
+
+# 66. Centroid-based language subspace
+
+## Research question
+
+Can a language-specific subspace with only one to three dimensions dominate late-layer cosine
+geometry while translation semantics remain accessible in the complementary space?
+
+## Protocol
+
+`scripts/run_language_subspace.py` learns all directions from FLORES `dev` only. At every layer it
+forms the four language-centroid differences around their global mean, computes their SVD, and
+removes the first `k=1,2,3` right-singular directions from both `dev` and `devtest`
+representations. It then measures translation retrieval and fits a fresh standardized linear
+language probe on transformed `dev` representations before evaluating it on transformed
+`devtest` representations.
+
+```powershell
+python scripts/run_language_subspace.py --config configs/tri_05b_public.yaml
+python scripts/run_language_subspace.py --config configs/qwen_05b_public.yaml
+```
+
+## Controls and metrics
+
+The same evaluation removes either the top `k` PCA directions learned from all `dev`
+representations or `k` random orthonormal directions. The random control uses ten saved seeds.
+Primary metrics are mean R@1 over 12 directed language pairs and language-probe accuracy; the tidy
+CSV also retains MRR, macro-F1, every language direction, and cumulative centroid variance.
+
+## Result
+
+At the final Tri layer, removing all three centroid directions raises mean-pooling R@1 from 0.124
+to 0.790 and last-token R@1 from 0.232 to 0.743, while language-probe accuracy falls to the
+four-class chance level of 0.250. For Qwen, mean-pooling R@1 rises from 0.043 to 0.647 and
+last-token R@1 from 0.026 to 0.644, again with probe accuracy at 0.250. Removing three random
+directions leaves both retrieval and language identification essentially unchanged.
+
+The three centroid dimensions necessarily explain all between-centroid variance with four
+languages. At the final layer, the first direction alone explains 46–56%, and the first two explain
+80–85%, depending on model and pooling.
+
+## Interpretation
+
+The late-layer collapse is compatible with a very low-dimensional language component dominating
+cosine distances rather than semantic structure disappearing. Three train-derived directions can
+simultaneously erase linearly decodable language identity and recover much of the translation
+retrieval signal.
+
+## What this does NOT establish
+
+The top-three global PCA control performs almost identically to the centroid subspace. The current
+experiment therefore shows that the relevant language directions coincide with dominant variance
+directions, but it does not establish that centroid supervision identifies a uniquely specific
+subspace. With only four languages the centroid subspace is capped at three dimensions by
+construction. The next phase must localize when these directions are amplified inside the
+Transformer blocks before attempting a causal intervention.
+
+---
+
+# 67. Residual-stream mechanism and causal intervention
+
+## Research question
+
+Which Transformer sublayers introduce or amplify the language-dominant geometry, and does removing
+that geometry inside the forward pass prevent the later retrieval collapse?
+
+## Protocol
+
+`scripts/run_block_mechanism.py` captures the block input, residual stream after attention, and
+block output after the MLP for FLORES `dev` and `devtest`. All centroids, language subspaces, and
+linear probes are learned on `dev`; retrieval and probe scores are evaluated on `devtest`. The
+primary targets are Tri block 7 and Qwen block 22, with Qwen blocks 23 and 24 added after block 22
+was found not to cause the collapse.
+
+`scripts/run_residual_intervention.py` learns a three-dimensional basis from mean-pooled `dev`
+representations at the configured block output. A forward hook removes the projection onto that
+basis from every token state, without changing model weights, and lets all later layers execute
+normally. The same procedure is repeated for five random orthonormal bases.
+
+```powershell
+python scripts/run_block_mechanism.py --config configs/tri_05b_public.yaml
+python scripts/run_block_mechanism.py --config configs/qwen_05b_public.yaml
+python scripts/run_residual_intervention.py --config configs/tri_05b_public.yaml
+python scripts/run_residual_intervention.py --config configs/qwen_05b_public.yaml
+```
+
+## Controls and metrics
+
+The block analysis reports raw and train-centered R@1/MRR, language-probe accuracy/macro-F1,
+centroid separation and norm, fraction of total variance in the train-derived language subspace,
+anisotropy, and stable rank. The intervention compares the unmodified forward pass, language-basis
+removal, and five seeded random-basis removals at every remaining layer.
+
+## Result
+
+Tri block 7 shows a sharp MLP-localized transition for mean pooling. From post-attention to block
+output, raw R@1 falls from 0.817 to 0.291 and centered R@1 from 0.975 to 0.408. At the same point,
+centroid separation rises from 142 to 850, the fraction of variance in the language subspace rises
+from 0.229 to 0.983, and stable rank falls from 9.44 to 1.01. Attention itself does not cause this
+collapse.
+
+Qwen block 22 instead improves mean retrieval and lowers the language-subspace variance fraction.
+The degradation is localized later: the block-23 MLP lowers raw R@1 from 0.529 to 0.347 while
+centered R@1 remains about 0.917; the block-24 MLP lowers raw R@1 from 0.356 to 0.123 while the
+language-subspace fraction rises from 0.602 to 0.787. The final normalization further lowers the
+cached mean-pooled final-state R@1 to 0.043.
+
+The causal intervention prevents a substantial part of the later collapse. At the final hidden
+state, mean-pooled R@1 rises from 0.124 to 0.325 for Tri and from 0.043 to 0.706 for Qwen. The mean
+of the five random-direction controls remains at 0.122 and 0.042 respectively. Last-token R@1 also
+rises from 0.232 to 0.310 for Tri and from 0.026 to 0.366 for Qwen.
+
+## Interpretation
+
+The observational and interventional results jointly support a causal role for a small,
+train-derived geometric component in late-layer alignment collapse. Tri's block-7 MLP directly
+creates an extreme low-rank, language-dominated state. Qwen distributes the corresponding
+amplification across the final two MLP blocks, but removing the earlier block-22 output component
+prevents most of the final collapse.
+
+## What this does NOT establish
+
+The intervention does not permanently erase language information: after dropping to chance at the
+intervention layer for mean pooling, probe accuracy re-emerges to 0.975 for Tri and 0.992 for Qwen
+at the final state. It therefore changes the trajectory of language geometry rather than deleting
+language identity. The experiment measures representation-level retrieval, not changes in token
+probabilities or generation quality, and the four-language basis remains limited to three
+dimensions by construction.

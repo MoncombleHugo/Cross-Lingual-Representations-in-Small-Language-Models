@@ -31,3 +31,52 @@ language_probe:
 tokenization:
   enabled: true
   add_special_tokens: true
+nonparallel_centering:
+  enabled: true
+  dataset_name: allenai/c4
+  dataset_configs:
+    en: en-multi
+    ko: ko
+  split: train
+  text_field: text
+  id_field: null
+  pool_size: 16
+  shuffle_buffer_size: 100
+  sample_sizes: [4, 8]
+  seeds: [0, 1]
+crosslingual_transfer:
+  enabled: true
+  dataset_name: AmazonScience/massive
+  dataset_configs: {en: en-US, ko: ko-KR}
+  train_split: train
+  evaluation_split: test
+  text_field: utt
+  label_field: intent
+  id_field: id
+  n_train: 120
+  n_eval: 120
+  layers: [embedding, intermediate, final]
+  batch_size: 32
+  max_length: 64
+  representation_dtype: float32
+  c: 1.0
+  max_iter: 500
+language_subspace:
+  enabled: true
+  dimensions: [1]
+  random_seeds: [42]
+  c: 1.0
+  max_iter: 500
+block_mechanism:
+  enabled: true
+  block_layer: 7
+  subspace_dimensions: 1
+  c: 1.0
+  max_iter: 500
+residual_intervention:
+  enabled: true
+  basis_pooling: last_token
+  dimensions: 1
+  random_seeds: [0]
+  c: 1.0
+  max_iter: 500

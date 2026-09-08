@@ -14,7 +14,7 @@ from cross_lingual_representations.retrieval import ResultRow, evaluate_directio
 from cross_lingual_representations.similarity import cosine_similarity_matrix, l2_normalize
 
 
-def _stable_rank(values: NDArray[np.float32], *, iterations: int = 12) -> float:
+def stable_rank(values: NDArray[np.float32], *, iterations: int = 12) -> float:
     """Estimate squared Frobenius/spectral norm after centering."""
     centered = values - values.mean(axis=0, keepdims=True)
     frobenius_squared = float(np.sum(centered * centered))
@@ -46,9 +46,7 @@ def geometry_diagnostics(bundle: RepresentationBundle, *, seed: int = 42) -> lis
             normalized[language] = unit
             count = len(unit)
             vector_sum = unit.sum(axis=0)
-            pairwise_cosine = (float(vector_sum @ vector_sum) - count) / (
-                count * max(count - 1, 1)
-            )
+            pairwise_cosine = (float(vector_sum @ vector_sum) - count) / (count * max(count - 1, 1))
             common: ResultRow = {
                 "model": bundle.model_name,
                 "layer": layer,
@@ -67,7 +65,7 @@ def geometry_diagnostics(bundle: RepresentationBundle, *, seed: int = 42) -> lis
                         "value": float(np.linalg.norm(unit.mean(axis=0))),
                     },
                     {**common, "metric": "within_language_cosine", "value": pairwise_cosine},
-                    {**common, "metric": "stable_rank", "value": _stable_rank(values)},
+                    {**common, "metric": "stable_rank", "value": stable_rank(values)},
                 ]
             )
 

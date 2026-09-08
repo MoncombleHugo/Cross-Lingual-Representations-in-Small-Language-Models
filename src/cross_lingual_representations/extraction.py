@@ -2,19 +2,29 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from typing import Any, Literal, cast
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, Literal, Protocol, cast
 
 import numpy as np
 import torch
 from tqdm.auto import tqdm
 
 from cross_lingual_representations.cache import RepresentationBundle, utc_timestamp
-from cross_lingual_representations.data import ParallelSplit
 from cross_lingual_representations.models import LoadedModel, make_layer_labels
 from cross_lingual_representations.pooling import PoolingMethod, pool_hidden_states
 
 RepresentationDType = Literal["float16", "float32"]
+
+
+class RepresentationDataset(Protocol):
+    split: str
+    ids: tuple[str, ...]
+
+    @property
+    def sentences(self) -> Mapping[str, tuple[str, ...]]: ...
+
+    @property
+    def language_codes(self) -> Mapping[str, str]: ...
 
 
 def _batches(values: Sequence[str], batch_size: int) -> Iterable[Sequence[str]]:
@@ -24,7 +34,7 @@ def _batches(values: Sequence[str], batch_size: int) -> Iterable[Sequence[str]]:
 
 def extract_representations(
     loaded: LoadedModel,
-    dataset: ParallelSplit,
+    dataset: RepresentationDataset,
     *,
     pooling_methods: Sequence[PoolingMethod],
     batch_size: int,
@@ -32,6 +42,7 @@ def extract_representations(
     seed: int = 42,
     representation_dtype: RepresentationDType = "float16",
     show_progress: bool = True,
+    layer_indices: Sequence[int] | None = None,
 ) -> dict[PoolingMethod, RepresentationBundle]:
     """Extract and immediately pool all layers, never retaining token states."""
     if batch_size <= 0:
@@ -46,6 +57,7 @@ def extract_representations(
         method: [] for method in methods
     }
     observed_state_count: int | None = None
+    selected_indices: tuple[int, ...] | None = None
 
     for language, texts in dataset.sentences.items():
         language_batches: dict[PoolingMethod, list[torch.Tensor]] = {
@@ -81,10 +93,21 @@ def extract_representations(
                 raise RuntimeError("Model did not return hidden states")
             if observed_state_count is None:
                 observed_state_count = len(hidden_states)
+                if layer_indices is None:
+                    selected_indices = tuple(range(observed_state_count))
+                else:
+                    selected_indices = tuple(dict.fromkeys(layer_indices))
+                    if not selected_indices or any(
+                        index < 0 or index >= observed_state_count for index in selected_indices
+                    ):
+                        raise ValueError("layer_indices contain an unavailable hidden state")
             elif len(hidden_states) != observed_state_count:
                 raise RuntimeError("The number of hidden states changed between batches")
+            if selected_indices is None:
+                raise RuntimeError("Hidden-state selection was not initialized")
+            selected_states = tuple(hidden_states[index] for index in selected_indices)
             for method in methods:
-                pooled = pool_hidden_states(hidden_states, attention_mask, method)
+                pooled = pool_hidden_states(selected_states, attention_mask, method)
                 language_batches[method].append(pooled.to(device="cpu", dtype=torch.float32))
             del outputs, hidden_states
 
@@ -92,7 +115,7 @@ def extract_representations(
             language_tensor = torch.cat(language_batches[method], dim=0)
             by_method[method].append(language_tensor.numpy().astype(numpy_dtype, copy=False))
 
-    if observed_state_count is None:
+    if observed_state_count is None or selected_indices is None:
         raise RuntimeError("No representations were extracted")
     languages = tuple(dataset.sentences)
     language_codes = tuple(dataset.language_codes[language] for language in languages)
@@ -106,7 +129,9 @@ def extract_representations(
             languages=languages,
             language_codes=language_codes,
             sentence_ids=dataset.ids,
-            layer_labels=make_layer_labels(observed_state_count),
+            layer_labels=tuple(
+                make_layer_labels(observed_state_count)[index] for index in selected_indices
+            ),
             pooling=method,
             seed=seed,
             max_length=max_length,

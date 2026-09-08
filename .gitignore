@@ -33,6 +33,12 @@ results/raw/*
 !results/raw/*_retrieval_subsamples.csv
 !results/raw/*_position_retrieval.csv
 !results/raw/*_block_*_retrieval.csv
+!results/raw/*_centering_sample_efficiency.csv
+!results/raw/*_crosslingual_transfer.csv
+!results/raw/retrieval_vs_transfer_gain.csv
+!results/raw/*_language_subspace.csv
+!results/raw/*_block_*_mechanism.csv
+!results/raw/*_block_*_intervention.csv
 !results/raw/tokenization.csv
 !results/tables/
 !results/tables/*.csv

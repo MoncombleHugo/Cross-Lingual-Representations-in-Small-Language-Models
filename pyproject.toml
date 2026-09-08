@@ -61,5 +61,5 @@ module = ["datasets", "datasets.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["sklearn", "sklearn.*"]
+module = ["sklearn", "sklearn.*", "scipy", "scipy.*"]
 ignore_missing_imports = true

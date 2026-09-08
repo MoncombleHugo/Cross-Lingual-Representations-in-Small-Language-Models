@@ -10,6 +10,7 @@ from cross_lingual_representations.cache import (
     RepresentationBundle,
     load_representation_cache,
     representation_cache_path,
+    validate_cache,
 )
 from cross_lingual_representations.config import ExperimentConfig
 from cross_lingual_representations.data import ParallelSplit, load_flores_split
@@ -56,3 +57,37 @@ def load_configured_bundle(
     )
     path = representation_cache_path(cache_root, config.model.model_name, dataset.split, pooling)
     return load_representation_cache(path, expected=expected)
+
+
+def load_configured_cached_bundle(
+    config: ExperimentConfig,
+    cache_root: str | Path,
+    *,
+    role: SplitRole,
+    pooling: str,
+) -> RepresentationBundle:
+    """Validate a canonical cache without reopening its source dataset."""
+    split = config.dataset.train_split if role == "train" else config.dataset.evaluation_split
+    n_samples = config.dataset.n_train if role == "train" else config.dataset.n_eval
+    path = representation_cache_path(cache_root, config.model.model_name, split, pooling)
+    bundle = load_representation_cache(path)
+    if len(bundle.sentence_ids) != n_samples:
+        raise ValueError(
+            f"Cached {split} sample count is {len(bundle.sentence_ids)}, expected {n_samples}"
+        )
+    validate_cache(
+        bundle,
+        CacheSpec(
+            model_name=config.model.model_name,
+            model_revision=config.model.revision,
+            split=split,
+            languages=tuple(config.dataset.languages),
+            language_codes=tuple(config.dataset.languages.values()),
+            sentence_ids=bundle.sentence_ids,
+            pooling=pooling,
+            max_length=config.max_length,
+            seed=config.seed,
+            representation_dtype=config.representation_dtype,
+        ),
+    )
+    return bundle
