@@ -789,16 +789,21 @@ def plot_residual_intervention(
     if not rows:
         raise ValueError("No residual-intervention rows were provided")
     poolings = sorted({str(row["pooling"]) for row in rows})
-    figure = Figure(figsize=(10.0, 7.0), constrained_layout=True)
+    has_probe = any(row["metric"] == "language_probe_accuracy" for row in rows)
+    specifications = (
+        (("r1", "Translation R@1"), ("language_probe_accuracy", "Language probe"))
+        if has_probe
+        else (("r1", "Translation R@1"),)
+    )
+    figure = Figure(figsize=(10.0, 3.7 * len(specifications)), constrained_layout=True)
     FigureCanvasAgg(figure)
-    axes = np.asarray(figure.subplots(2, len(poolings), sharex=True), dtype=object).reshape(
-        2, len(poolings)
+    axes = np.asarray(
+        figure.subplots(len(specifications), len(poolings), sharex=True, squeeze=False),
+        dtype=object,
+    ).reshape(
+        len(specifications), len(poolings)
     )
     for column, pooling in enumerate(poolings):
-        specifications = (
-            ("r1", "Translation R@1"),
-            ("language_probe_accuracy", "Language probe"),
-        )
         for row_index, (metric, title) in enumerate(specifications):
             axis = axes[row_index, column]
             selected = [
@@ -821,7 +826,7 @@ def plot_residual_intervention(
             axis.set(title=f"{pooling}: {title}", ylim=(0.0, 1.02))
             axis.grid(alpha=0.25)
             axis.legend(frameon=False, fontsize=8)
-            if row_index == 1:
+            if row_index == len(specifications) - 1:
                 axis.set_xlabel("Hidden-state layer")
     figure.suptitle("Causal residual-stream subspace removal")
     destination = Path(output_path)

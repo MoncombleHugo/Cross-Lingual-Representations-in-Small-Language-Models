@@ -39,6 +39,9 @@ results/raw/*
 !results/raw/*_language_subspace.csv
 !results/raw/*_block_*_mechanism.csv
 !results/raw/*_block_*_intervention.csv
+!results/raw/*_intervention_basis_comparison.csv
+!results/raw/*_massive_intervention.csv
+!results/raw/*_intervention_lm_eval.csv
 !results/raw/tokenization.csv
 !results/tables/
 !results/tables/*.csv

@@ -1,4 +1,4 @@
-"""Remove a train-derived language subspace inside a block and continue the forward pass."""
+"""Compare train-derived language, PCA, and random residual-stream interventions."""
 
 from __future__ import annotations
 
@@ -24,11 +24,11 @@ from cross_lingual_representations.experiment import (
 from cross_lingual_representations.intervention import (
     InterventionVectors,
     evaluate_residual_interventions,
+    intervention_bases,
+    paired_retrieval_bootstrap,
+    validate_intervention_basis,
 )
-from cross_lingual_representations.language_subspace import (
-    centroid_language_subspace,
-    random_orthonormal_basis,
-)
+from cross_lingual_representations.language_subspace import random_orthonormal_basis
 from cross_lingual_representations.models import LoadedModel, load_causal_lm
 from cross_lingual_representations.plotting import plot_residual_intervention
 from cross_lingual_representations.pooling import last_token_pool, mean_pool
@@ -56,6 +56,17 @@ def _batches(values: Sequence[str], size: int) -> Iterable[Sequence[str]]:
         yield values[start : start + size]
 
 
+def _same_flores_rows(left: tuple[str, ...], right: tuple[str, ...]) -> bool:
+    """Accept the historical FLORES one-based/zero-based ID convention change."""
+    if left == right:
+        return True
+    try:
+        offsets = {int(a) - int(b) for a, b in zip(left, right, strict=True)}
+    except ValueError:
+        return False
+    return len(left) == len(right) and offsets in ({1}, {-1})
+
+
 def _decoder_layers(model: Any) -> Any:
     backbone = getattr(model, "model", None)
     layers = getattr(backbone, "layers", None)
@@ -73,7 +84,7 @@ def _block_cache_path(config: ExperimentConfig, root: Path) -> Path:
     )
 
 
-def _language_basis(config: ExperimentConfig, root: Path) -> NDArray[np.float32]:
+def _learned_bases(config: ExperimentConfig, root: Path) -> dict[str, NDArray[np.float32]]:
     path = _block_cache_path(config, root)
     if not path.exists():
         raise FileNotFoundError(
@@ -87,8 +98,9 @@ def _language_basis(config: ExperimentConfig, root: Path) -> NDArray[np.float32]
         if metadata.get("block_layer") != config.block_mechanism.block_layer:
             raise ValueError("Block-stage cache layer does not match configuration")
         vectors = np.asarray(archive[key], dtype=np.float32)
-    basis, _explained = centroid_language_subspace(vectors)
-    return np.asarray(basis[:, : config.residual_intervention.dimensions], dtype=np.float32)
+    if metadata.get("split") != config.dataset.train_split:
+        raise ValueError("Intervention bases must be learned on the configured train split")
+    return intervention_bases(vectors, config.residual_intervention.dimensions)
 
 
 def _condition_cache_path(
@@ -122,8 +134,12 @@ def _save_condition_cache(
     metadata = {
         "model_name": config.model.model_name,
         "model_revision": config.model.revision,
+        "dataset": config.dataset.name,
         "block_layer": config.block_mechanism.block_layer,
+        "intervention_layer": config.block_mechanism.block_layer,
         "dimensions": config.residual_intervention.dimensions,
+        "basis_dimension": config.residual_intervention.dimensions,
+        "basis_type": condition.removeprefix("remove_"),
         "condition": condition,
         "seed": seed,
         "split": dataset.split,
@@ -134,6 +150,7 @@ def _save_condition_cache(
         "layer_indices": list(layer_indices),
         "max_length": config.max_length,
         "experiment_seed": config.seed,
+        "dtype": "float32",
     }
     payload: dict[str, Any] = {**vectors, "metadata": np.asarray(json.dumps(metadata))}
     temporary = path.with_suffix(".npz.tmp")
@@ -286,13 +303,17 @@ def main() -> None:
             evaluation_normal[pooling].vectors[:, :, layer_indices, :], dtype=np.float32
         )
 
-    language_basis = _language_basis(config, args.block_cache_root)
+    learned_bases = _learned_bases(config, args.block_cache_root)
+    language_basis = learned_bases["language"]
     conditions: list[tuple[str, int | None, NDArray[np.float32]]] = [
-        ("remove_language", None, language_basis)
+        ("remove_language", None, language_basis),
+        ("remove_pca", None, learned_bases["pca"]),
     ]
     for seed in settings.random_seeds:
         random_basis = random_orthonormal_basis(language_basis.shape[0], settings.dimensions, seed)
-        conditions.append(("remove_random", seed, np.asarray(random_basis, dtype=np.float32)))
+        random_basis32 = np.asarray(random_basis, dtype=np.float32)
+        validate_intervention_basis(random_basis32, name=f"random seed {seed}")
+        conditions.append(("remove_random", seed, random_basis32))
 
     pending: list[tuple[str, int | None, NDArray[np.float32], str]] = []
     for condition, seed, basis in conditions:
@@ -315,9 +336,9 @@ def main() -> None:
                 destination = train_vectors if role == "train" else evaluation_vectors
                 for pooling, values in vectors.items():
                     destination[(condition, seed, pooling)] = values
-                if role == "train" and ids != train_ids:
+                if role == "train" and not _same_flores_rows(ids, train_ids):
                     raise ValueError("Intervention train IDs differ from normal cache")
-                if role == "evaluation" and ids != evaluation_ids:
+                if role == "evaluation" and not _same_flores_rows(ids, evaluation_ids):
                     raise ValueError("Intervention evaluation IDs differ from normal cache")
             else:
                 pending.append((condition, seed, basis, role))
@@ -363,21 +384,45 @@ def main() -> None:
         c=settings.c,
         max_iter=settings.max_iter,
         random_state=config.seed,
+        include_language_probe=False,
     )
+    for row in rows:
+        row.update(
+            {
+                "record_type": "metric",
+                "comparison": "",
+                "ci_lower": "",
+                "ci_upper": "",
+                "n_resamples": "",
+            }
+        )
+    bootstrap_rows = paired_retrieval_bootstrap(
+        evaluation_vectors,
+        languages=tuple(config.dataset.languages),
+        layer_indices=layer_indices,
+        comparisons=(
+            ("remove_language", "normal"),
+            ("remove_pca", "normal"),
+            ("remove_language", "remove_pca"),
+        ),
+        n_resamples=1000,
+        random_state=config.seed,
+    )
+    for row in bootstrap_rows:
+        row["model"] = config.model.model_name
+    rows.extend(bootstrap_rows)
     raw_path = (
         args.results_root
         / "raw"
         / (
-            f"{config.experiment_name}_block_"
-            f"{config.block_mechanism.block_layer:02d}_intervention.csv"
+            f"{config.experiment_name}_intervention_basis_comparison.csv"
         )
     )
     figure_path = (
         args.results_root
         / "figures"
         / (
-            f"{config.experiment_name}_block_"
-            f"{config.block_mechanism.block_layer:02d}_intervention.png"
+            f"{config.experiment_name}_intervention_basis_comparison.png"
         )
     )
     write_tidy_csv(rows, raw_path)

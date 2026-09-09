@@ -1,0 +1,13 @@
+model,language,condition,metric,value,perplexity,delta_nll,sentences,valid_tokens,basis_split,evaluation_split,intervention_layer,basis_dimension
+Qwen/Qwen2.5-0.5B,en,normal,mean_token_nll,3.4498218511226346,31.494781049056208,0.0,512,13499,,devtest,22,0
+Qwen/Qwen2.5-0.5B,ko,normal,mean_token_nll,3.2383107364306256,25.490624972567435,0.0,512,22256,,devtest,22,0
+Qwen/Qwen2.5-0.5B,ja,normal,mean_token_nll,3.363568320060992,28.892103429858267,0.0,512,19220,,devtest,22,0
+Qwen/Qwen2.5-0.5B,zh,normal,mean_token_nll,3.868411000296551,47.866266136854776,0.0,512,13502,,devtest,22,0
+Qwen/Qwen2.5-0.5B,en,language,mean_token_nll,3.656769518305067,38.73600457508461,0.2069476671824324,512,13499,dev,devtest,22,3
+Qwen/Qwen2.5-0.5B,ko,language,mean_token_nll,6.547145278911467,697.2508732391441,3.308834542480841,512,22256,dev,devtest,22,3
+Qwen/Qwen2.5-0.5B,ja,language,mean_token_nll,6.033381139177686,417.12299868332786,2.669812819116694,512,19220,dev,devtest,22,3
+Qwen/Qwen2.5-0.5B,zh,language,mean_token_nll,6.184735600320768,485.2846375424867,2.3163246000242173,512,13502,dev,devtest,22,3
+Qwen/Qwen2.5-0.5B,en,pca,mean_token_nll,3.594213798122235,36.38708114773552,0.14439194699960023,512,13499,dev,devtest,22,3
+Qwen/Qwen2.5-0.5B,ko,pca,mean_token_nll,6.852749399107022,946.4795827553772,3.6144386626763967,512,22256,dev,devtest,22,3
+Qwen/Qwen2.5-0.5B,ja,pca,mean_token_nll,6.894662266392862,986.9923280387255,3.53109394633187,512,19220,dev,devtest,22,3
+Qwen/Qwen2.5-0.5B,zh,pca,mean_token_nll,7.555467950275361,1911.1643646011253,3.68705694997881,512,13502,dev,devtest,22,3
