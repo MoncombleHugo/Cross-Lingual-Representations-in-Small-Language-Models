@@ -1,6 +1,6 @@
 # Cross-Lingual Representations in Small Language Models
 
-An empirical study of how multilingual sentence representations evolve across the layers of small causal language models — and whether language-specific directions causally affect cross-lingual transfer.
+An empirical study of how multilingual sentence representations evolve across the layers of small causal language models and whether language-specific directions causally affect cross-lingual transfer.
 
 The project compares **Tri-0.5B** and **Qwen2.5-0.5B** on English, Korean, Japanese, and Chinese. It combines layer-wise representation analysis with controlled residual-stream interventions, using reproducible pipelines designed to run on a single consumer GPU.
 
