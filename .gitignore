@@ -12,6 +12,7 @@ htmlcov/
 !.env.example
 .idea/
 .vscode/
+docs/
 .DS_Store
 Thumbs.db
 artifacts/*

@@ -55,7 +55,6 @@ tests/                                Unit and integration tests
 results/raw/                          Tidy experimental outputs
 results/tables/                       Aggregated results
 results/figures/                      Publication-ready figures
-docs/RAPPORT_EXPERIMENTAL.md          Full experimental report (French)
 ```
 
 ## Run the project
@@ -81,7 +80,7 @@ python scripts/run_all.py --config configs/tri_05b_public.yaml
 python scripts/run_all.py --config configs/qwen_05b_public.yaml
 ```
 
-The specialized analyses are exposed as separate scripts so cached representations can be reused. See [`scripts/`](scripts/) for the available entry points and [`docs/RAPPORT_EXPERIMENTAL.md`](docs/RAPPORT_EXPERIMENTAL.md) for the complete protocol, commands, interpretation, and limitations.
+The specialized analyses are exposed as separate scripts so cached representations can be reused. See [`scripts/`](scripts/) for the available entry points.
 
 ## Quality checks
 
