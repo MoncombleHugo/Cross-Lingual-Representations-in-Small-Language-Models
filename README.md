@@ -1,62 +1,54 @@
 # Cross-Lingual Representations in Small Language Models
 
-This project studies **cross-lingual representation geometry in small causal language models**, focusing on how semantic alignment evolves across layers and how low-dimensional residual-stream interventions affect that geometry.
+This project explores how multilingual language models organize meaning across languages, and how that organization changes through the network.
 
-The experiments compare **Tri-0.5B** and **Qwen2.5-0.5B** on English, Korean, Japanese, and Chinese using **FLORES-200** and **MASSIVE**.
+The main question is simple: **when two sentences mean the same thing but are written in different languages, how similarly are they represented inside the model?**
 
-## Overview
+I study this in two small causal language models, **Tri-0.5B** and **Qwen2.5-0.5B**, using English, Korean, Japanese, and Chinese.
 
-The analysis combines:
+## What the project investigates
 
-- layer-wise cross-lingual retrieval
-- linear language probes
-- orthogonal Procrustes alignment
-- low-rank residual-stream interventions
-- matched PCA and random controls
-- zero-shot transfer evaluation
-- next-token NLL measurements
+The first step is to track cross-lingual alignment layer by layer. Parallel sentences become increasingly easy to match in intermediate layers, but this alignment can deteriorate sharply near the end of the model.
 
-For the intervention experiments, a rank-3 language-associated subspace is estimated from centered language centroids and removed from an intermediate residual stream:
+This raises an important distinction: does the model actually lose shared semantic information, or does that information simply become harder to recover from the raw geometry?
 
-h' = h - UU^T h
+To investigate this, the project combines:
 
-The modified hidden state is then propagated through the remaining Transformer blocks.
+- cross-lingual retrieval across layers
+- linear probes for language identity
+- language-wise centering and alignment
+- low-rank interventions in the residual stream
+- PCA and random-direction controls
+- zero-shot transfer on MASSIVE
+- next-token likelihood evaluation
 
-## Main results
+Rather than treating any single metric as evidence of a mechanism, the experiments progressively test alternative explanations for the observed geometry.
 
-Both models show that a very small number of directions can strongly affect final-layer cross-lingual geometry.
+## What we learn
 
-| Model | FLORES R@1 | After intervention |
-|---|---:|---:|
-| Tri-0.5B | 0.124 | **0.325** |
-| Qwen2.5-0.5B | 0.043 | **0.706** |
+The results suggest that **cross-lingual alignment and language identity are not opposites**. Representations can remain strongly language-specific while still supporting good semantic alignment across languages.
 
-The same interventions also improve zero-shot performance on **MASSIVE**, indicating that the effect is not limited to translation retrieval.
+The degradation of cross-lingual retrieval in late layers also does not necessarily mean that shared semantic structure has disappeared. Much of it can be recovered by removing simple language-dependent offsets or a very small number of dominant directions.
 
-The control experiments reveal different behaviors across models:
+Residual-stream interventions show that these low-dimensional directions can actively influence the geometry produced by later layers. However, the controls are important: in Qwen, much of the effect can also be reproduced by removing dominant PCA directions, while in Tri the language-derived subspace appears more distinct from this generic high-variance structure.
 
-- **Qwen:** PCA removal reproduces much of the intervention gain, suggesting that dominant high-variance directions explain a large part of the effect.
-- **Tri:** the language-derived basis separates more clearly from the PCA control, indicating a stronger language-associated component.
+This means that strong intervention effects should not automatically be interpreted as evidence for a uniquely language-specific mechanism.
 
-The interventions also increase next-token NLL, showing that directions that hurt cross-lingual geometry can still be useful for language modeling.
+Finally, making representations more cross-lingually aligned does **not** necessarily make the language model better. The same interventions that improve retrieval and zero-shot transfer also worsen next-token prediction. The directions that make the geometry less convenient for cross-lingual comparison can still be useful for the model's actual objective.
 
 ## Takeaway
 
-The results show that **cross-lingual geometry in late layers can be highly sensitive to low-dimensional structure**. They also highlight the importance of matched controls when interpreting intervention effects as language-specific.
+The project points toward a view where multilingual representations are not progressively compressed into a single language-independent semantic space.
+
+Instead, shared semantic structure, language-specific information, and high-variance directions coexist and are reorganized across layers. Intermediate representations can be especially easy to compare across languages, while later layers reshape that geometry for next-token prediction.
+
+More broadly, the experiments illustrate why representation analysis benefits from combining geometric measurements, causal interventions, and matched controls before drawing conclusions about what a model is actually doing.
 
 ## Repository structure
 
+```text
 configs/                              Experiment configurations
 src/cross_lingual_representations/   Analysis code
 scripts/                              Experiment entry points
 results/                              Tables and figures
 tests/                                Tests
-
-Run the main pipelines with:
-
-python scripts/run_all.py --config configs/tri_05b_public.yaml
-python scripts/run_all.py --config configs/qwen_05b_public.yaml
-
-## Scope
-
-Current experiments cover two 0.5B models, four languages, FLORES-200, and MASSIVE. The Tri/Qwen comparison should be interpreted with some caution because the selected intervention layers occur at different relative depths.
