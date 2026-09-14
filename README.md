@@ -52,3 +52,11 @@ src/cross_lingual_representations/   Analysis code
 scripts/                              Experiment entry points
 results/                              Tables and figures
 tests/                                Tests
+```
+
+Run the main pipelines with:
+
+```bash
+python scripts/run_all.py --config configs/tri_05b_public.yaml
+python scripts/run_all.py --config configs/qwen_05b_public.yaml
+```
