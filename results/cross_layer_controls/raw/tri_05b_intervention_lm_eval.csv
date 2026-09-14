@@ -1,0 +1,13 @@
+model,language,condition,metric,value,perplexity,delta_nll,sentences,valid_tokens,basis_split,evaluation_split,intervention_layer,basis_dimension
+trillionlabs/Tri-0.5B-Base,en,normal,mean_token_nll,3.8159230989986237,45.418662960309184,0.0,512,12821,,devtest,22,0
+trillionlabs/Tri-0.5B-Base,ko,normal,mean_token_nll,4.81462781440575,123.30091294561095,0.0,512,13311,,devtest,22,0
+trillionlabs/Tri-0.5B-Base,ja,normal,mean_token_nll,4.472833281681283,87.60458017526422,0.0,512,15270,,devtest,22,0
+trillionlabs/Tri-0.5B-Base,zh,normal,mean_token_nll,4.596382273874178,99.12505887225478,0.0,512,14884,,devtest,22,0
+trillionlabs/Tri-0.5B-Base,en,language,mean_token_nll,5.010666280350292,150.00464801011728,1.1947431813516682,512,12821,dev,devtest,22,3
+trillionlabs/Tri-0.5B-Base,ko,language,mean_token_nll,5.8379948931053445,343.0907169515518,1.0233670786995948,512,13311,dev,devtest,22,3
+trillionlabs/Tri-0.5B-Base,ja,language,mean_token_nll,5.836360040051374,342.53027229231304,1.3635267583700905,512,15270,dev,devtest,22,3
+trillionlabs/Tri-0.5B-Base,zh,language,mean_token_nll,8.12552678754848,3379.6478192104873,3.5291445136743027,512,14884,dev,devtest,22,3
+trillionlabs/Tri-0.5B-Base,en,pca,mean_token_nll,6.958534317486707,1052.0903961304343,3.1426112184880837,512,12821,dev,devtest,22,3
+trillionlabs/Tri-0.5B-Base,ko,pca,mean_token_nll,5.573413656293634,263.33148987496406,0.7587858418878843,512,13311,dev,devtest,22,3
+trillionlabs/Tri-0.5B-Base,ja,pca,mean_token_nll,6.065857715269437,430.89210195445327,1.5930244335881536,512,15270,dev,devtest,22,3
+trillionlabs/Tri-0.5B-Base,zh,pca,mean_token_nll,6.462430614644691,640.6162570133272,1.8660483407705133,512,14884,dev,devtest,22,3

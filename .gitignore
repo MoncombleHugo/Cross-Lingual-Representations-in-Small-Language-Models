@@ -49,4 +49,10 @@ results/raw/*
 !results/tables/*.md
 !results/figures/
 !results/figures/*.png
+!results/cross_layer_controls/
+!results/cross_layer_controls/*.md
+!results/cross_layer_controls/raw/
+!results/cross_layer_controls/raw/*.csv
+!results/cross_layer_controls/figures/
+!results/cross_layer_controls/figures/*.png
 results/**/*smoke*
