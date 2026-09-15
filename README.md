@@ -22,7 +22,6 @@ To investigate this, the project combines:
 - zero-shot transfer on MASSIVE
 - next-token likelihood evaluation
 
-Rather than treating any single metric as evidence of a mechanism, the experiments progressively test alternative explanations for the observed geometry.
 
 ## What we learn
 
